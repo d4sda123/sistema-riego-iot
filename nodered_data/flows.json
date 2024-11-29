@@ -1,0 +1,157 @@
+[
+    {
+        "id": "f6f2187d.f17ca8",
+        "type": "tab",
+        "label": "Flow 1",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "0ba6d6627241e1b4",
+        "type": "mqtt-broker",
+        "name": "EMQX",
+        "broker": "${MQTT_HOST}",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "5",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "61cefc831b86a89d",
+        "type": "MySQLdatabase",
+        "name": "MySQL",
+        "host": "${MYSQL_HOST}",
+        "port": "${MYSQL_PORT}",
+        "db": "${MYSQL_DATABASE}",
+        "tz": "",
+        "charset": "UTF8"
+    },
+    {
+        "id": "ba42bc715e3c9ac3",
+        "type": "mqtt in",
+        "z": "f6f2187d.f17ca8",
+        "name": "",
+        "topic": "sensor/riego",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "0ba6d6627241e1b4",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 110,
+        "y": 180,
+        "wires": [
+            [
+                "5ba9a08de0bbfe8d"
+            ]
+        ]
+    },
+    {
+        "id": "5ba9a08de0bbfe8d",
+        "type": "json",
+        "z": "f6f2187d.f17ca8",
+        "name": "Leer JSON",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 330,
+        "y": 180,
+        "wires": [
+            [
+                "46fecf79fe9322a2",
+                "8f9e8f3b2912c1be"
+            ]
+        ]
+    },
+    {
+        "id": "a4bad8d4f6df8c0e",
+        "type": "mysql",
+        "z": "f6f2187d.f17ca8",
+        "mydb": "61cefc831b86a89d",
+        "name": "db",
+        "x": 790,
+        "y": 180,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "46fecf79fe9322a2",
+        "type": "template",
+        "z": "f6f2187d.f17ca8",
+        "name": "INSERT LECTURA",
+        "field": "topic",
+        "fieldType": "msg",
+        "format": "sql",
+        "syntax": "mustache",
+        "template": "INSERT INTO LECTURA (sensor_id, valor)\nVALUES \n    (1, :temp),\n    (2, :humedad),\n    (3, :humedadsuelo),\n    (4, :nivelagua);",
+        "output": "str",
+        "x": 570,
+        "y": 180,
+        "wires": [
+            [
+                "a4bad8d4f6df8c0e"
+            ]
+        ]
+    },
+    {
+        "id": "8f9e8f3b2912c1be",
+        "type": "function",
+        "z": "f6f2187d.f17ca8",
+        "name": "Verificar nivel_agua",
+        "func": "const temp = msg.payload.temp;\nconst humedad = msg.payload.humedad;\nconst humedadsuelo = msg.payload.humedadsuelo;\nconst nivelagua = msg.payload.nivelagua;\n\nif (nivelagua == 0) {\n    msg.payload = \"Nivel de agua bajo, imposible regar.\";\n} else {\n    if (humedad >= 700) {\n        msg.payload = \"Suelo ligeramente humedo, iniciando riego.\"\n    } else {\n        msg.payload = \"Suelo humedo.\"\n    }\n}\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 570,
+        "y": 280,
+        "wires": [
+            [
+                "07ecc87f704d6eaf"
+            ]
+        ]
+    },
+    {
+        "id": "07ecc87f704d6eaf",
+        "type": "mqtt out",
+        "z": "f6f2187d.f17ca8",
+        "name": "",
+        "topic": "sensor/riego/mensajes",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "0ba6d6627241e1b4",
+        "x": 840,
+        "y": 280,
+        "wires": []
+    }
+]

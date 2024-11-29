@@ -1,0 +1,148 @@
+services:
+  mysql:
+    image: mysql:latest
+    container_name: mysql
+    restart: no
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+    volumes:
+      - "mysql_data:/var/lib/mysql"
+      - "./mysql_init_scripts:/docker-entrypoint-initdb.d"
+    networks:
+      vps_bridge:
+        aliases:
+          - "mysql"
+
+  emqx:
+    image: emqx/emqx:latest
+    container_name: emqx
+    restart: no
+    ports:
+      - 18083:18083 
+      - 1883:1883
+      - 8083:8083
+      - 8084:8084
+      - 8883:8883
+    environment:
+      EMQX_NODE_NAME: "${EMQX_NODE_NAME}"
+      EMQX_NODE__COOKIE: "${EMQX_NODE__COOKIE}"
+      EMQX_AUTHENTICATION__1__BACKEND: mysql
+      EMQX_AUTHENTICATION__1__DATABASE: "${MYSQL_DATABASE}"
+      EMQX_AUTHENTICATION__1__ENABLE: true
+      EMQX_AUTHENTICATION__1__MECHANISM: password_based
+      EMQX_AUTHENTICATION__1__PASSWORD: "${MYSQL_PASSWORD}"
+      EMQX_AUTHENTICATION__1__PASSWORD_HASH_ALGORITHM__NAME: sha256
+      EMQX_AUTHENTICATION__1__PASSWORD_HASH_ALGORITHM__SALT_POSITION: suffix
+      EMQX_AUTHENTICATION__1__POOL_SIZE: 8
+      EMQX_AUTHENTICATION__1__QUERY: "${EMQX_AUTHENTICATION_MYSQL_QUERY}"
+      EMQX_AUTHENTICATION__1__QUERY_TIMEOUT: 5s
+      EMQX_AUTHENTICATION__1__SERVER: "${MYSQL_HOST}:${MYSQL_PORT}"
+      EMQX_AUTHENTICATION__1__SSL__CIPHERS:
+      EMQX_AUTHENTICATION__1__SSL__DEPTH: 10
+      EMQX_AUTHENTICATION__1__SSL__ENABLE: false
+      EMQX_AUTHENTICATION__1__SSL__HIBERNATE_AFTER: 5s
+      EMQX_AUTHENTICATION__1__SSL__LOG_LEVEL: notice
+      EMQX_AUTHENTICATION__1__SSL__REUSE_SESSIONS: true
+      EMQX_AUTHENTICATION__1__SSL__SECURE_RENEGOTIATE: true
+      EMQX_AUTHENTICATION__1__SSL__VERIFY: verify_peer
+      EMQX_AUTHENTICATION__1__SSL__VERSIONS__1: tlsv1.3
+      EMQX_AUTHENTICATION__1__SSL__VERSIONS__2: tlsv1.2
+      EMQX_AUTHENTICATION__1__USERNAME: "${MYSQL_USER}"
+      EMQX_AUTHORIZATION__CACHE__ENABLE: true
+      EMQX_AUTHORIZATION__CACHE__EXCLUDES:
+      EMQX_AUTHORIZATION__CACHE__MAX_SIZE: 32
+      EMQX_AUTHORIZATION__CACHE__TTL: 1m
+      EMQX_AUTHORIZATION__DENY_ACTION: ignore
+      EMQX_AUTHORIZATION__NO_MATCH: allow
+      EMQX_AUTHORIZATION__SOURCES__1__DATABASE: "${MYSQL_DATABASE}"
+      EMQX_AUTHORIZATION__SOURCES__1__ENABLE: true
+      EMQX_AUTHORIZATION__SOURCES__1__PASSWORD: "${MYSQL_PASSWORD}"
+      EMQX_AUTHORIZATION__SOURCES__1__POOL_SIZE: 8
+      EMQX_AUTHORIZATION__SOURCES__1__QUERY: "${EMQX_AUTHORIZATION_MYSQL_QUERY}"
+      EMQX_AUTHORIZATION__SOURCES__1__SERVER: "${MYSQL_HOST}:${MYSQL_PORT}"
+      EMQX_AUTHORIZATION__SOURCES__1__SSL__CIPHERS:
+      EMQX_AUTHORIZATION__SOURCES__1__SSL__DEPTH: 10
+      EMQX_AUTHORIZATION__SOURCES__1__SSL__ENABLE: false
+      EMQX_AUTHORIZATION__SOURCES__1__SSL__HIBERNATE_AFTER: 5s
+      EMQX_AUTHORIZATION__SOURCES__1__SSL__LOG_LEVEL: notice
+      EMQX_AUTHORIZATION__SOURCES__1__SSL__REUSE_SESSIONS: true
+      EMQX_AUTHORIZATION__SOURCES__1__SSL__SECURE_RENEGOTIATE: true
+      EMQX_AUTHORIZATION__SOURCES__1__SSL__VERIFY: verify_peer
+      EMQX_AUTHORIZATION__SOURCES__1__SSL__VERSIONS__1: tlsv1.3
+      EMQX_AUTHORIZATION__SOURCES__1__SSL__VERSIONS__2: tlsv1.2
+      EMQX_AUTHORIZATION__SOURCES__1__TYPE: mysql
+      EMQX_AUTHORIZATION__SOURCES__1__USERNAME: "${MYSQL_USER}"
+
+    volumes:
+      - "emqx_data:/opt/emqx/data"
+      - "emqx_log:/opt/emqx/log"
+    depends_on:
+      - mysql
+    healthcheck:
+      test: ["CMD", "/opt/emqx/bin/emqx", "ctl", "status"]
+      interval: 5s
+      timeout: 25s
+      retries: 5
+    networks:
+      vps_bridge:
+        aliases:
+          - "emqx"
+
+  node-red:
+    build: ./custom-node-red
+    container_name: node-red
+    restart: no
+    ports:
+      - 1880:1880
+    environment:
+      MYSQL_HOST: "${MYSQL_HOST}"
+      MYSQL_PORT: "${MYSQL_PORT}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MQTT_HOST: "${MQTT_HOST}"
+      MQTT_PORT: "${MQTT_PORT}"
+      MQTT_USER: "${MQTT_USER}"
+      MQTT_PASSWORD: "${MQTT_PASSWORD}"
+      FLOW: "${NODE_RED_FLOW}"
+      NODE_RED_CREDENTIAL_SECRET: "${NODE_RED_CREDENTIAL_SECRET}"
+    volumes:
+      - "nodered_data:/data"
+      - "./nodered_data/settings.js:/data/settings.js"
+      - "./nodered_data/flows.json:/data/flows.json"
+      - "./nodered_data/flows_cred.json:/data/flows_cred.json"
+    depends_on:
+      - mysql
+      - emqx
+    networks:
+      vps_bridge:
+        aliases:
+          - "node-red"
+  
+  mqttx:
+    image: emqx/mqttx-web:latest
+    container_name: mqttx
+    restart: no
+    ports:
+      - "8080:80"
+    depends_on:
+      - emqx
+    networks:
+      vps_bridge:
+        aliases:
+          - "mqttx"
+
+volumes:
+  mysql_data:
+  emqx_data:
+  emqx_log:
+  nodered_data:
+
+networks:
+  vps_bridge:
+    driver: bridge
