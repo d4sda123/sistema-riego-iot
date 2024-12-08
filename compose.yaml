@@ -13,6 +13,12 @@ services:
     volumes:
       - "mysql_data:/var/lib/mysql"
       - "./mysql_init_scripts:/docker-entrypoint-initdb.d"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     networks:
       vps_bridge:
         aliases:
@@ -77,7 +83,6 @@ services:
       EMQX_AUTHORIZATION__SOURCES__1__SSL__VERSIONS__2: tlsv1.2
       EMQX_AUTHORIZATION__SOURCES__1__TYPE: mysql
       EMQX_AUTHORIZATION__SOURCES__1__USERNAME: "${MYSQL_EMQX_USER}"
-
     volumes:
       - "emqx_data:/opt/emqx/data"
       - "emqx_log:/opt/emqx/log"
@@ -125,6 +130,31 @@ services:
         aliases:
           - "node-red"
   
+  flask:
+    build: ./flask
+    container_name: flask
+    restart: no
+    ports:
+      - 5000:5000
+    environment:
+      MYSQL_HOST: "${MYSQL_HOST}"
+      MYSQL_PORT: "${MYSQL_PORT}"
+      MYSQL_FLASK_USER: "${MYSQL_FLASK_USER}"
+      MYSQL_FLASK_PASSWORD: "${MYSQL_FLASK_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      FLASK_CREDENTIALS_FILE: "${FLASK_CREDENTIALS_FILE}"
+      FLASK_DESTINATION_EMAIL: "${FLASK_DESTINATION_EMAIL}"      
+    volumes:
+      - "flask:/flask"
+      - "./flask/app.py:/flask/app.py"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      vps_bridge:
+        aliases:
+          - "flask"
+
   mqttx:
     image: emqx/mqttx-web:latest
     container_name: mqttx
@@ -143,6 +173,7 @@ volumes:
   emqx_data:
   emqx_log:
   nodered_data:
+  flask:
 
 networks:
   vps_bridge:
