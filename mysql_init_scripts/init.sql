@@ -3,14 +3,14 @@ DROP DATABASE IF EXISTS sistema_riego;
 CREATE DATABASE sistema_riego;
 
 -- Usuarios MySQL: EMQX, node-red, Flask, Rocketbot
-CREATE USER 'node-red'@'localhost' IDENTIFIED BY '2-}OT05MN$4+#aJxr{M`';
-GRANT ALL PRIVILEGES ON sistema_riego.* TO 'node-red'@'localhost' IDENTIFIED BY '2-}OT05MN$4+#aJxr{M`';
-CREATE USER 'emqx'@'localhost' IDENTIFIED BY 'i%}&rt1c/B>P|6RmLVnr';
-GRANT ALL PRIVILEGES ON sistema_riego.* TO 'emqx'@'localhost' IDENTIFIED BY 'i%}&rt1c/B>P|6RmLVnr';
-CREATE USER 'flask'@'localhost' IDENTIFIED BY 'R zbjeL;X!I}PHL-oH:G';
-GRANT ALL PRIVILEGES ON sistema_riego.* TO 'flask'@'localhost' IDENTIFIED BY 'R zbjeL;X!I}PHL-oH:G';
-CREATE USER 'rocketbot'@'localhost' IDENTIFIED BY 'HH+:Hu=wz]izP"?-sjf4';
-GRANT ALL PRIVILEGES ON sistema_riego.* TO 'rocketbot'@'localhost' IDENTIFIED BY 'HH+:Hu=wz]izP"?-sjf4';
+CREATE USER 'emqx'@'localhost' IDENTIFIED BY '7FF161E4392ED9C72FB0A16957D80E57';
+GRANT ALL PRIVILEGES ON sistema_riego.* TO 'emqx'@'localhost' IDENTIFIED BY '7FF161E4392ED9C72FB0A16957D80E57';
+CREATE USER 'node-red'@'localhost' IDENTIFIED BY 'DE31DBF294ACA5D7BB0EA9624641CDF7';
+GRANT ALL PRIVILEGES ON sistema_riego.* TO 'node-red'@'localhost' IDENTIFIED BY 'DE31DBF294ACA5D7BB0EA9624641CDF7';
+CREATE USER 'flask'@'localhost' IDENTIFIED BY '20A1598BD2ADB0D3DEE274D2FB6FA0AC';
+GRANT ALL PRIVILEGES ON sistema_riego.* TO 'flask'@'localhost' IDENTIFIED BY '20A1598BD2ADB0D3DEE274D2FB6FA0AC';
+CREATE USER 'rocketbot'@'localhost' IDENTIFIED BY 'F118A754D2C67CB39045106B73DA5066';
+GRANT ALL PRIVILEGES ON sistema_riego.* TO 'rocketbot'@'localhost' IDENTIFIED BY 'F118A754D2C67CB39045106B73DA5066';
 
 FLUSH PRIVILEGES;
 
@@ -164,12 +164,12 @@ BEGIN
 END //
 DELIMITER ;
 
-CALL addMQTTUser('node-red', 'l{/(%K:+*>d^sRNYW<&z', 'node-red', 1);
-CALL addMQTTUser('mqttx', 'Hin>,#p(Fi1% =1epRMA', 'mqttx', 0);
-CALL addMQTTUser('client', '3HVL_5>pg?;s38/^}#vG', 'client', 0);
-CALL addMQTTUser('admin', '2MUfxVTL2i~xoh:+R7UG', 'admin', 1);
-CALL addMQTTUser('esp32', 'N8/VW9\U..{95$9ZQ#nG', 'esp32', 0)
-CALL addMQTTUser('user', '#QpMPf]l`WkC||}(-1n}', 'user', '')
+CALL addMQTTUser('node-red', '5ABB1EBA2FA62F10087A2F77C45AB0ED', 'node-red', 1);
+CALL addMQTTUser('mqttx', '527EEB79ED951D1217E4079F96F89A5F', 'mqttx', 0);
+CALL addMQTTUser('client', '0EE7DEBB64E5BB337F445687D3D52E35', 'client', 0);
+CALL addMQTTUser('admin', 'D70FE56CE61180758754F9DDC3AE9A0B', 'admin', 1);
+CALL addMQTTUser('esp32', '370E9BB70E8424A3636BCF94DE186BF0', 'esp32', 0)
+CALL addMQTTUser('user', 'F472645D80F0E615B0173F3AA818BBCE', 'user', '')
 
 insert into tipo_sensor (descripcion) 
 values 
