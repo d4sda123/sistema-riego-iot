@@ -24,6 +24,35 @@ services:
         aliases:
           - "mysql"
 
+  nginx-proxy-manager:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: nginx-proxy
+    restart: no
+    ports:
+      - 80:80
+      - 81:81
+      - 443:443
+    environment:
+      DB_MYSQL_HOST: "${MYSQL_HOST}"
+      DB_MYSQL_PORT: "${MYSQL_PORT}"
+      DB_MYSQL_USER: "${MYSQL_NGINX_USER}"
+      DB_MYSQL_PASSWORD: "${MYSQL_NGINX_PASSWORD}"
+      DB_MYSQL_NAME: "${NPM_DATABASE}"
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/usr/bin/check-health"]
+      interval: 10s
+      timeout: 3s
+    networks:
+      vps_bridge:
+        aliases:
+          - "nginx-proxy"
+
   emqx:
     image: emqx/emqx:latest
     container_name: emqx
@@ -89,7 +118,8 @@ services:
       - "emqx_data:/opt/emqx/data"
       - "emqx_log:/opt/emqx/log"
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "/opt/emqx/bin/emqx", "ctl", "status"]
       interval: 5s
@@ -125,8 +155,10 @@ services:
       - "./nodered_data/flows.json:/data/flows.json"
       - "./nodered_data/flows_cred.json:/data/flows_cred.json"
     depends_on:
-      - mysql
-      - emqx
+      mysql:
+        condition: service_healthy
+      emqx:
+        condition: service_healthy
     networks:
       vps_bridge:
         aliases:
@@ -164,7 +196,8 @@ services:
     ports:
       - "8080:80"
     depends_on:
-      - emqx
+      emqx:
+        condition: service_healthy
     networks:
       vps_bridge:
         aliases:
