@@ -1,4 +1,4 @@
-google-auth-oauthlib
-google-api-python-client
 flask
-mysqlclient
+flask-jwt-extended
+Flask-MySQLdb
+bcrypt

@@ -1,116 +1,93 @@
+from flask import Flask, request, jsonify
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, unset_jwt_cookies
+from flask_mysqldb import MySQL
+import bcrypt
 import os
-import pickle
-import base64
-import MySQLdb
-import time
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from flask import Flask, jsonify
 
+# Configuración de la app Flask
 app = Flask(__name__)
 
-SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+# Configuración de la base de datos
+app.config['MYSQL_HOST'] = os.getenv("MYSQL_HOST", "")
+app.config['MYSQL_USER'] = os.getenv("MYSQL_FLASK_USER", "")
+app.config['MYSQL_PASSWORD'] = os.getenv("MYSQL_FLASK_PASSWORD", "")
+app.config['MYSQL_DB'] = os.getenv("MYSQL_DATABASE", "")
 
-MYSQL_HOST = os.getenv("MYSQL_HOST", "")
-MYSQL_PORT = int(os.getenv("MYSQL_PORT", 0))
-MYSQL_USER = os.getenv("MYSQL_FLASK_USER", "")
-MYSQL_PASSWORD = os.getenv("MYSQL_FLASK_PASSWORD", "")
-MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "")
-CREDENTIALS_FILE = os.getenv("FLASK_CREDENTIALS_FILE", "")
-DESTINATION_EMAIL = os.getenv("FLASK_DESTINATION_EMAIL", "")
+# Configuración de JWT
+app.config['JWT_SECRET_KEY'] = os.getenv("JWT_SECRET_KEY", "")
 
-while True:
-    try:
-        db = MySQLdb.connect(host=MYSQL_HOST, port=MYSQL_PORT,user=MYSQL_USER, passwd=MYSQL_PASSWORD, db=MYSQL_DATABASE)
-        print("Connected to MySQL")
-        break
-    except MySQLdb.OperationalError as e:
-        print("Waiting for MySQL to be ready...", e)
-        time.sleep(5)
+# Inicialización de la base de datos y JWT
+mysql = MySQL(app)
+jwt = JWTManager(app)
 
-cursor = db.cursor()
+# Ruta para el login
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.json.get('username', None)
+    password = request.json.get('password', None)
 
-# Función para obtener el último nivel de agua
-def get_last_water_level(sensor_id):
-    query = "SELECT valor, fecha_hora FROM LECTURA WHERE sensor_id = %s ORDER BY fecha_hora DESC LIMIT 1"
-    cursor.execute(query, (sensor_id,))
-    result = cursor.fetchone()
-    
-    if result:
-        nivel_agua = result[0]  # valor del nivel de agua
-        fecha_hora = result[1]  # fecha y hora de la lectura
-        return nivel_agua, fecha_hora
-    else:
-        return None, None
+    if not username or not password:
+        return jsonify({"message": "Faltan credenciales"}), 400
 
-# Función para enviar el correo
-def send_email(subject, body, to_email):
-    creds = None
-    # El archivo token.pickle almacena el token de acceso de usuario
-    # Si no existe, el flujo de autenticación se realizará nuevamente.
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
+    # Consultar el usuario en la base de datos
+    cur = mysql.connection.cursor()
+    cur.execute('SELECT id, username, password_hash, salt, role_id FROM users WHERE username = %s', (username,))
+    user = cur.fetchone()
 
-    # Si no tenemos credenciales (o han caducado), autenticamos al usuario
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+    if user:
+        user_id, db_username, password_hash, salt, role_id = user
+
+        # Verificar contraseña con el hash y el salt
+        if bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8')):
+            # Recuperar el rol del usuario
+            cur.execute('SELECT name FROM roles WHERE id = %s', (role_id,))
+            role = cur.fetchone()[0] if role_id else 'guest'
+
+            # Crear un token JWT
+            access_token = create_access_token(identity={'username': db_username, 'id': user_id, 'role': role})
+            return jsonify({"message": "Login exitoso", "token": access_token}), 200
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                CREDENTIALS_FILE, SCOPES)
-            creds = flow.run_local_server(port=0)
-
-        # Guardar el token para la próxima vez
-        with open('token.pickle', 'wb') as token:
-            pickle.dump(creds, token)
-
-    # Llamar a la API de Gmail
-    try:
-        service = build('gmail', 'v1', credentials=creds)
-
-        # Crear el mensaje
-        message = MIMEMultipart()
-        message['to'] = to_email
-        message['subject'] = subject
-        message.attach(MIMEText(body, 'plain'))
-
-        # Enviar el mensaje a través de la API de Gmail
-        raw_message = {'raw': base64.urlsafe_b64encode(message.as_bytes()).decode()}
-        message = service.users().messages().send(userId="me", body=raw_message).execute()
-        print(f"Correo enviado con éxito a {to_email}")
-        return True
-
-    except Exception as error:
-        print(f"Ocurrió un error: {error}")
-        return False
-
-# Ruta para verificar el nivel de agua y enviar correo si es bajo
-@app.route('/check_water_level', methods=['GET'])
-def check_water_level():
-    sensor_id = 4  # ID del sensor de agua
-    nivel_agua, fecha_hora = get_last_water_level(sensor_id)
-    
-    if nivel_agua is not None:
-        print(f"Nivel de agua: {nivel_agua}, Fecha y hora: {fecha_hora}")
-
-        # Verificar si el nivel de agua es bajo
-        if nivel_agua <= 10:
-            subject = "¡Alerta! Nivel de agua bajo"
-            body = f"El nivel de agua ha bajado a {nivel_agua}. ¡Es hora de revisar el sistema de riego!"
-            to_email = DESTINATION_EMAIL
-            if send_email(subject, body, to_email):
-                return jsonify({"message": "Correo enviado con éxito."}), 200
-            else:
-                return jsonify({"message": "Error al enviar el correo."}), 500
-        else:
-            return jsonify({"message": "El nivel de agua es adecuado."}), 200
+            return jsonify({"message": "Usuario o contraseña incorrectos"}), 401
     else:
-        return jsonify({"message": "No se encontraron datos para el sensor de agua."}), 404
+        return jsonify({"message": "Usuario o contraseña incorrectos"}), 401
+
+# Ruta protegida con validación de rol
+@app.route('/admin', methods=['GET'])
+@jwt_required()
+def admin_area():
+    current_user = get_jwt_identity()
+    if current_user['role'] != 'admin':
+        return jsonify({"message": "Acceso denegado"}), 403
+    return jsonify({"message": "Bienvenido al área de administración"}), 200
+
+# Ruta para registrar un nuevo usuario
+@app.route('/register', methods=['POST'])
+def register():
+    username = request.json.get('username', None)
+    email = request.json.get('email', None)
+    password = request.json.get('password', None)
+    role_id = request.json.get('role_id', None)  # Opcional: Asignar un rol al usuario
+
+    if not username or not password or not email:
+        return jsonify({"message": "Faltan credenciales"}), 400
+
+    # Encriptar la contraseña con bcrypt
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
+    # Insertar el nuevo usuario en la base de datos
+    cur = mysql.connection.cursor()
+    cur.execute('INSERT INTO users (username, email, password_hash, salt, role_id) VALUES (%s, %s, %s, %s, %s)', 
+                (username, email, hashed_password, '', role_id))
+    mysql.connection.commit()
+    return jsonify({"message": "Usuario registrado exitosamente"}), 201
+
+# Ruta para el logout
+@app.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    response = jsonify({"message": "Logout exitoso"})
+    unset_jwt_cookies(response)  # Esta función elimina el JWT cookie
+    return response, 200
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
