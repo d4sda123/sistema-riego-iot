@@ -177,7 +177,8 @@ services:
       MYSQL_FLASK_PASSWORD: "${MYSQL_FLASK_PASSWORD}"
       MYSQL_DATABASE: "${MYSQL_DATABASE}"
       FLASK_CREDENTIALS_FILE: "${FLASK_CREDENTIALS_FILE}"
-      FLASK_DESTINATION_EMAIL: "${FLASK_DESTINATION_EMAIL}"      
+      FLASK_DESTINATION_EMAIL: "${FLASK_DESTINATION_EMAIL}"
+      JWT_SECRET_KEY: "${JWT_SECRET_KEY}"
     volumes:
       - "flask:/flask"
       - "./flask/app.py:/flask/app.py"
